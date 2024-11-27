@@ -1,83 +1,134 @@
 package org.example;
 
-import java.awt.Robot;
-import java.awt.event.KeyEvent;
-import java.time.Duration;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import io.github.bonigarcia.wdm.WebDriverManager;
 
+import java.time.Duration;
+import java.util.Arrays;
 
 public class fitPeo {
 
-    public static void main(String args[]) throws Exception {
+    static WebDriver driver = new ChromeDriver();
+    static JavascriptExecutor js = (JavascriptExecutor) driver;
 
-        // Set up WebDriver and launch Chrome browser
+    public static void main(String[] args) throws InterruptedException {
+
+// For launching Chrome browser
         WebDriverManager.chromedriver().setup();
-        WebDriver driver = new ChromeDriver();
 
-        // Navigate to the FitPeo Homepage
+// Navigate to the FitPeo Home page
         driver.get("https://www.fitpeo.com/");
         driver.manage().window().maximize();
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(5));
 
-        // Navigate to the revenue calculator page
+// For navigating to the revenue calculator page
         driver.findElement(By.xpath("//*[text()='Revenue Calculator']")).click();
 
-        // Wait for the slider element to be visible
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
+// For waiting explicitly for the slider to be visible
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        WebElement slider = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[@class='MuiSlider-root MuiSlider-colorPrimary MuiSlider-sizeMedium css-16i48op']")));
 
-        // Locate the value field and the slider handle
-        WebElement value = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath("//*[text()='Total Individual Patient/Month']/following-sibling::p")));
+// Get the width of the slider element to calculate the offset
+        int width = slider.getSize().getWidth();
+        System.out.println("Slider Width: " + width);
 
-        WebElement sliderHandle = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(".//input[@data-index='0' and @type='range']")));
+// Initializing the slider values
+        int startingValue = 200; // Starting point of the slider
+        int targetValue = 820; // Desired target value
+        int maxValue = 2000; // Maximum value of the slider (Ensure this is correct)
 
-        // Initialize Actions class for clicking and interacting with the slider
-        Actions actions = new Actions(driver);
+// To calculate the difference between starting value and target value
+        int differenceValue = targetValue - startingValue;
 
-        // Click on the slider handle to focus it and make it interactable
-        actions.moveToElement(sliderHandle).click().perform();
+// To calculate the targetOffset based on the slider width
+        int targetOffset = (differenceValue * width) / maxValue;
+        System.out.println("Target Offset: " + targetOffset);
 
-        // Optionally, use Robot for simulating key presses (right arrow)
-        Robot robot = new Robot();
+// For handling the slider movement to target value
+        WebElement sliderHandle = driver.findElement(By.xpath("//*[@type='range']"));
 
-        // Set the target value (820) and starting value (200)
-        int targetValue = 820;
-        int currentValue = Integer.parseInt(value.getText().trim());
+// Creating Actions object for slider interaction
+        Actions act = new Actions(driver);
 
-        // Starting value from the span
-        int maxValue = 2000;
+// To click and hold the slider handle, move it to the calculated offset, and
+// release
+        act.clickAndHold(sliderHandle).moveByOffset(targetOffset, 0).release().perform();
 
-        // Maximum value for the slider
-        // Loop and simulate the right arrow key press until the target value is reached
-        while (currentValue < targetValue) {
+// As observed, the slider targets odd numbers (e.g., 817 instead of 820)
+// This can be handled as per the application's behavior if needed
 
-            // Optionally, simulate a right arrow key press to adjust the slider
-            robot.keyPress(KeyEvent.VK_RIGHT);
-            robot.keyRelease(KeyEvent.VK_RIGHT);
+// Scroll down by 500 pixels to bring the next field into view
+        js.executeScript("window.scrollBy(0, 500)");
 
-            // Optionally, add a small delay to simulate human behavior
-            Thread.sleep(100);
+// To enter the text field value
+        WebElement textField = driver.findElement(By.xpath("//input[contains(@class,'MuiInputBase') and @type='number']"));
 
-            // Adjust the sleep time if necessary
-            // Check the updated value in the span element
-            value = driver.findElement(By.xpath("//*[text()='Total Individual Patient/Month']/following-sibling::p"));
-            currentValue = Integer.parseInt(value.getText().trim());
+// Wait until the text field is clickable
+        wait.until(ExpectedConditions.elementToBeClickable(textField));
 
-            // Print the current value to monitor progress
-            System.out.println("Current Value: " + currentValue);
+        // click the targeted ele
+        textField.click();
+
+// send the values with control option
+        textField.sendKeys(Keys.chord(Keys.CONTROL, "a"));
+// Enter the input value
+        textField.sendKeys("560");
+
+        String[] checkboxes = new String[]{"CPT-99091", "CPT-99453", "CPT-99454", "CPT-99474"};
+        Arrays.stream(checkboxes).forEach(cons -> {
+            clickCheckBox(cons);
+        });
+        textField.sendKeys(Keys.chord(Keys.CONTROL, "a"));
+
+// Enter the input value
+        textField.sendKeys("820");
+
+// Scroll down by 500 pixels to bring the next field into view
+        js.executeScript("window.scrollBy(0, 250)");
+
+
+        try {
+
+            // Locate the header containing the total recurring reimbursement value
+            // Replace 'YOUR_HEADER_SELECTOR' with the appropriate CSS selector for the header element
+            WebElement headerElement = driver.findElement(By.xpath("//*[text()='Total Recurring Reimbursement for all Patients Per Month:'] /p"));
+
+            // Get the text from the header
+            String headerValue = headerElement.getText().trim();
+
+            //Validate that the text matches the expected value
+            String expectedValue = "$110700";
+
+            if (headerValue.equals(expectedValue)) {
+
+                System.out.println("Validation successful: The header expected value is " + expectedValue + "and The Actual value is " + headerValue);
+            } else {
+
+                System.out.println("Validation failed: Expected '" + expectedValue + "', but got '" + headerValue + "'.");
+            }
+
+        } catch (Exception e) {
+
+            // Handle any exceptions
+            System.out.println("An error occurred: " + e.getMessage());
+
+        } finally {
+
+            // Close the browser after the check is complete
+            driver.quit();
         }
+    }
 
-        // After reaching the target value, print the final value
-        System.out.println("Target value reached: " + targetValue);
+    static void clickCheckBox(String CPTNumber) {
+        driver.findElement(By.xpath("//*[text()='" + CPTNumber + "']/..//input")).click();
+    }
 
-        // Close the browser after the interaction//
-        driver.quit();
+    static void scrollIntoView(String xpath) {
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", driver.findElement(By.xpath(xpath)));
 
     }
 }
